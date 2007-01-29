@@ -26,7 +26,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <getopt.h>
 #include <time.h>
 #include <signal.h>
 #include <endian.h>
@@ -59,9 +58,7 @@ int main(int argc, char *argv[])
 {
 
     pcap_t *handle;/* Session handle */
-    char *opt_chdir;/* directory to write dump */
-    char *ifname;/* interface to sniff on */
-    char *fname;/* pcap file to read on */
+    char *dev;/* The device to sniff on */
     char errbuf[PCAP_ERRBUF_SIZE];/* Error string */
     struct bpf_program fp;/* The compiled filter */
     char filter_exp[] = "udp";/* The filter expression */
@@ -70,79 +67,40 @@ int main(int argc, char *argv[])
     struct pcap_pkthdr header;/* The header that pcap gives us */
     const u_char *packet;/* The actual packet */
     unsigned long last_cleanup=0;
-    int opt_fork=1;
-    int opt_promisc=1;
-
-    ifname=NULL;
-    fname=NULL;
-    opt_chdir="/var/spool/pcapsipdump";
-    while(1) {
-        char c;
-        c = getopt_long (argc, argv, "i:r:d:fp",
-                        NULL, NULL);
-        if (c == -1)
-            break;
-
-        switch (c) {
-            case 'i':
-                ifname=optarg;
-                break;
-            case 'r':
-                fname=optarg;
-                break;
-            case 'd':
-                opt_chdir=optarg;
-                break;
-            case 'f':
-                opt_fork=0;
-                break;
-            case 'p':
-                opt_promisc=0;
-                break;
-        }
-    }
     
-    // allow interface to be specified without '-i' option - for sake of compatibility
-    if (optind < argc) {
-	ifname = argv[optind];
-    }
-
-    if ((fname==NULL)&&(ifname==NULL)){
-	printf("pcapsipdump version %s\n"
-	       "Usage: pcapsipdump [-fp] [-i <interface>] [-r <file>] [-d <working directory>]\n"
-	       " -f     Do not fork or detach from controlling terminal.\n"
-	       " -p     Do not put the interface into promiscuous mode.\n",PCAPSIPDUMP_VERSION);
-	return 1;
-    }
-
     ct = new calltable;
     signal(SIGINT,sigint_handler);
 
-    if (ifname){
-	printf("Capturing on interface: %s\n", ifname);
-	/* Find the properties for interface */
-	if (pcap_lookupnet(ifname, &net, &mask, errbuf) == -1) {
-	    fprintf(stderr, "Couldn't get netmask for interface %s: %s\n", ifname, errbuf);
+    if (argc!=2){
+	printf("pcapsipdump version 0.1.1\n"
+	       "Usage: pcapsipdump <file|interface>\n");
+	return 1;
+    }
+    dev = argv[1];
+
+    /* Open the session in promiscuous mode */
+    if (dev!=NULL && memcmp(dev,"eth",3)==0){
+	printf("Capturing on device: %s\n", dev);
+	/* Find the properties for the device */
+	if (pcap_lookupnet(dev, &net, &mask, errbuf) == -1) {
+	    fprintf(stderr, "Couldn't get netmask for device %s: %s\n", dev, errbuf);
 	    net = 0;
 	    mask = 0;
 	}
-	handle = pcap_open_live(ifname, 1600, opt_promisc, 1000, errbuf);
-	if (handle == NULL) {
-	    fprintf(stderr, "Couldn't open inteface '%s': %s\n", ifname, errbuf);
-	    return(2);
-	}
+//	handle = pcap_open_live(dev, 1600, 1, 1000, errbuf);//promisc
+	handle = pcap_open_live(dev, 1600, 0, 1000, errbuf);//no promisc
     }else{
-	printf("Reading file: %s\n", fname);
+	printf("Reading file: %s\n", dev);
         net = 0;
         mask = 0;
-	handle = pcap_open_offline(fname, errbuf);
-	if (handle == NULL) {
-	    fprintf(stderr, "Couldn't open pcap file '%s': %s\n", ifname, errbuf);
-	    return(2);
-	}
+	handle = pcap_open_offline(dev, errbuf);
+    }
+    if (handle == NULL) {
+	fprintf(stderr, "Couldn't open device %s: %s\n", dev, errbuf);
+	return(2);
     }
 
-    chdir(opt_chdir);
+    chdir("/var/spool/pcapsipdump");
 
     /* Compile and apply the filter */
     if (pcap_compile(handle, &fp, filter_exp, 0, net) == -1) {
@@ -152,11 +110,6 @@ int main(int argc, char *argv[])
     if (pcap_setfilter(handle, &fp) == -1) {
 	fprintf(stderr, "Couldn't install filter %s: %s\n", filter_exp, pcap_geterr(handle));
 	return(2);
-    }
-
-    if (opt_fork){
-	// daemonize
-	if (fork()) exit(0);
     }
 
     while ((packet = pcap_next(handle, &header))){

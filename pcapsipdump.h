@@ -26,8 +26,6 @@
     This would be appreciated, but not required.
 */
 
-#define PCAPSIPDUMP_VERSION "0.1.2"
-
 struct iphdr {
 #if defined(__LITTLE_ENDIAN)
 	uint8_t	ihl:4,
