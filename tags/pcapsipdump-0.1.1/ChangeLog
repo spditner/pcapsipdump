@@ -1,0 +1,10 @@
+------------------- pcapsipdump 0.1.1 ------------------------------------------
+Sun Aug 13 15:08:44 MSD 2006
+        * minor code cleanup in order to (hopefely) improve portability
+	* added usage printout
+	* changed storage place from /home/pcapsipdump to /var/spool/pcapsipdump
+	* added copyright clauses to each file and LICENCE file
+
+------------------- pcapsipdump 0.1 --------------------------------------------
+Wed Jul 27 13:05:11 MSD 2006
+	* first publuc release
