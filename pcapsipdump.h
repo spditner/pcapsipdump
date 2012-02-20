@@ -24,7 +24,7 @@
     Project's home: http://pcapsipdump.sf.net/
 */
 
-#define PCAPSIPDUMP_VERSION "0.2-trunk"
+#define PCAPSIPDUMP_VERSION "0.2"
 
 struct iphdr {
 #if defined(__LITTLE_ENDIAN)
